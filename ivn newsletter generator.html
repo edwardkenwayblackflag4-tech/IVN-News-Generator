@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVN Newsletter Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --black: #0a0a0a;
+    --off-white: #f4f1ec;
+    --warm-white: #faf8f4;
+    --rust: #b84a1e;
+    --mid-gray: #6b7280;
+    --light-gray: #e5e0d8;
+    --tag-bg: #1c2b3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--black); color: var(--off-white); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+  header { border-bottom: 1px solid #222; padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; background: #0d0d0d; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; }
+  .logo span { color: var(--rust); }
+  .logo-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--mid-gray); display: block; margin-top: 2px; }
+  .week-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; color: var(--mid-gray); border: 1px solid #333; padding: 4px 10px; border-radius: 2px; }
+
+  .container { max-width: 1140px; margin: 0 auto; padding: 28px 20px; display: grid; grid-template-columns: 280px 1fr; gap: 28px; }
+
+  /* SIDEBAR */
+  .sidebar { position: sticky; top: 72px; height: calc(100vh - 90px); overflow-y: auto; padding-right: 4px; }
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  .sidebar-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--rust); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #222; display: flex; align-items: center; justify-content: space-between; }
+  .source-count { color: var(--mid-gray); font-size: 0.55rem; }
+
+  .source-card { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 3px; padding: 10px 12px; margin-bottom: 7px; transition: border-color 0.15s; position: relative; }
+  .source-card:hover { border-color: #333; }
+  .source-card.active-source { border-color: #2a1a0e; }
+  .source-card.inactive-source { opacity: 0.4; }
+  .source-card-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+  .source-checkbox { margin-top: 2px; accent-color: var(--rust); width: 13px; height: 13px; cursor: pointer; flex-shrink: 0; }
+  .source-name { font-size: 0.78rem; font-weight: 600; color: var(--off-white); cursor: pointer; flex: 1; }
+  .source-name:hover { color: var(--rust); }
+  .source-desc { font-size: 0.64rem; color: var(--mid-gray); line-height: 1.35; margin-left: 21px; margin-bottom: 5px; }
+  .source-tag { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 0.52rem; letter-spacing: 0.08em; background: var(--tag-bg); color: #7a9bbf; padding: 2px 5px; border-radius: 2px; margin-left: 21px; }
+  .source-actions { display: flex; gap: 6px; margin-top: 7px; margin-left: 21px; }
+  .source-btn { font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 2px; cursor: pointer; border: 1px solid #2a2a2a; background: transparent; color: var(--mid-gray); transition: all 0.15s; }
+  .source-btn:hover { border-color: var(--mid-gray); color: var(--off-white); }
+  .source-btn.del { color: #c06060; border-color: #3a1a1a; }
+  .source-btn.del:hover { background: #1a0808; border-color: #c06060; }
+
+  .add-source-form { background: #0d0d0d; border: 1px dashed #2a2a2a; border-radius: 3px; padding: 12px; margin-bottom: 10px; }
+  .add-source-form input { width: 100%; background: #111; border: 1px solid #2a2a2a; color: var(--off-white); padding: 7px 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.78rem; border-radius: 2px; outline: none; margin-bottom: 6px; }
+  .add-source-form input:focus { border-color: var(--rust); }
+
+  .sidebar-controls { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ctrl-btn { font-family: 'IBM Plex Mono', monospace; font-size: 0.56rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 8px; border-radius: 2px; cursor: pointer; border: 1px solid #2a2a2a; background: transparent; color: var(--mid-gray); transition: all 0.15s; flex: 1; text-align: center; }
+  .ctrl-btn:hover { border-color: var(--mid-gray); color: var(--off-white); }
+  .ctrl-btn.primary { background: var(--rust); border-color: var(--rust); color: white; }
+  .ctrl-btn.primary:hover { background: #a03218; }
+  .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* MAIN */
+  .step-bar { display: flex; gap: 6px; margin-bottom: 20px; }
+  .step { flex: 1; text-align: center; padding: 10px 6px; border: 1px solid #222; cursor: pointer; transition: all 0.2s; background: #0d0d0d; }
+  .step.active { background: var(--rust); border-color: var(--rust); }
+  .step-num { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; opacity: 0.7; display: block; margin-bottom: 2px; }
+  .step-name { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .tip { font-size: 0.73rem; color: var(--mid-gray); padding: 10px 14px; background: #0d0d0d; border-left: 2px solid var(--rust); margin-bottom: 16px; line-height: 1.55; }
+
+  .input-group { margin-bottom: 16px; }
+  .input-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--rust); display: block; margin-bottom: 7px; }
+  textarea, input[type="text"], input[type="date"], select { width: 100%; background: #111; border: 1px solid #2a2a2a; color: var(--off-white); padding: 10px 12px; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.83rem; border-radius: 2px; outline: none; transition: border-color 0.2s; resize: vertical; }
+  textarea:focus, input:focus, select:focus { border-color: var(--rust); }
+  select option { background: #111; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; background: var(--rust); color: white; border: none; padding: 11px 20px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 2px; transition: background 0.2s; }
+  .btn:hover { background: #a03218; }
+  .btn:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+  .btn-secondary { background: transparent; border: 1px solid #333; color: var(--mid-gray); }
+  .btn-secondary:hover { border-color: var(--mid-gray); color: var(--off-white); background: transparent; }
+  .btn-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+  .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; max-height: 200px; overflow-y: auto; padding-right: 2px; }
+  .filter-grid::-webkit-scrollbar { width: 3px; }
+  .filter-grid::-webkit-scrollbar-thumb { background: #333; }
+  .filter-chip { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 2px; cursor: pointer; transition: all 0.15s; font-size: 0.7rem; color: var(--mid-gray); }
+  .filter-chip input[type="checkbox"] { width: 12px; height: 12px; accent-color: var(--rust); cursor: pointer; flex-shrink: 0; padding: 0; margin: 0; background: none; border: none; }
+  .filter-chip.checked { border-color: #3a1a0a; background: #150d0a; color: var(--off-white); }
+  .filter-controls { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+  .filter-link { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.08em; color: var(--mid-gray); cursor: pointer; padding: 3px 0; border-bottom: 1px solid transparent; }
+  .filter-link:hover { color: var(--rust); border-color: var(--rust); }
+
+  .news-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .news-card { border: 1px solid #1e1e1e; padding: 12px 14px; background: #0d0d0d; cursor: pointer; transition: all 0.15s; position: relative; }
+  .news-card:hover { border-color: #333; background: #111; }
+  .news-card.selected { border-color: var(--rust); background: #120a07; }
+  .news-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 12px; color: var(--rust); font-size: 0.75rem; font-weight: 700; }
+  .news-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; flex-wrap: wrap; }
+  .news-source { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rust); }
+  .news-date { font-family: 'IBM Plex Mono', monospace; font-size: 0.56rem; color: var(--mid-gray); }
+  .news-category { margin-left: auto; font-size: 0.56rem; background: #1a1a1a; color: #7a9bbf; padding: 2px 7px; border-radius: 20px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }
+  .news-title { font-family: 'Playfair Display', serif; font-size: 0.92rem; font-weight: 600; line-height: 1.3; margin-bottom: 5px; }
+  .news-summary { font-size: 0.76rem; color: var(--mid-gray); line-height: 1.5; }
+  .relevance-bar { height: 2px; background: #1a1a1a; border-radius: 1px; margin-top: 8px; }
+  .relevance-fill { height: 100%; background: linear-gradient(90deg, var(--rust), #e05c35); border-radius: 1px; }
+  .relevance-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.53rem; color: #444; margin-top: 3px; letter-spacing: 0.07em; }
+  .select-counter { font-family: 'IBM Plex Mono', monospace; font-size: 0.63rem; color: var(--mid-gray); margin-top: 10px; letter-spacing: 0.06em; }
+  .select-counter span { color: var(--rust); font-weight: 600; }
+
+  .article-output { background: #080808; border: 1px solid #1e1e1e; padding: 24px 28px; margin-top: 18px; }
+  .article-header { border-bottom: 1px solid #1a1a1a; padding-bottom: 14px; margin-bottom: 16px; }
+  .article-cats { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .article-cat { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rust); }
+  .article-cat::after { content: ' ·'; color: #333; }
+  .article-cat:last-child::after { content: ''; }
+  .article-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; line-height: 1.25; color: var(--off-white); margin-bottom: 10px; }
+  .article-byline { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--mid-gray); letter-spacing: 0.06em; }
+  .article-body { font-size: 0.86rem; line-height: 1.75; color: #c0bab2; }
+  .article-body p { margin-bottom: 14px; }
+  .article-body p:first-child { font-size: 0.92rem; color: var(--off-white); }
+
+  .newsletter-wrapper { background: var(--warm-white); color: #111; padding: 36px; margin-top: 18px; font-family: 'IBM Plex Sans', sans-serif; }
+  .nl-header { border-bottom: 3px solid #111; padding-bottom: 14px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .nl-logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; }
+  .nl-logo span { color: var(--rust); }
+  .nl-issue { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; color: #888; text-align: right; }
+  .nl-article + .nl-article { margin-top: 28px; padding-top: 28px; border-top: 1px solid #ddd; }
+  .nl-article-cats { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rust); margin-bottom: 7px; }
+  .nl-article-title { font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 700; line-height: 1.3; color: #111; margin-bottom: 9px; }
+  .nl-article-body { font-size: 0.83rem; line-height: 1.7; color: #333; }
+  .nl-article-body p { margin-bottom: 10px; }
+  .nl-source { font-family: 'IBM Plex Mono', monospace; font-size: 0.56rem; color: #999; letter-spacing: 0.07em; margin-top: 8px; }
+
+  .status-msg { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; padding: 10px 14px; border-radius: 2px; margin: 10px 0; letter-spacing: 0.05em; line-height: 1.5; }
+  .status-error { background: #1a0808; border: 1px solid #4a1a1a; color: #e07070; }
+  .status-ok { background: #081a0f; border: 1px solid #1a4a2a; color: #70c090; }
+  .status-info { background: #080f1a; border: 1px solid #1a2a4a; color: #7090c0; }
+
+  .loader { display: none; align-items: center; gap: 10px; padding: 16px 0; color: var(--mid-gray); font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; letter-spacing: 0.08em; }
+  .loader.visible { display: flex; }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 5px; height: 5px; background: var(--rust); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+
+  /* MODAL (edit source) */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 500; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #111; border: 1px solid #2a2a2a; border-radius: 4px; padding: 24px; width: 420px; max-width: 95vw; }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+  /* BRIDGE OVERLAY — the guided Claude.ai handoff panel */
+  .bridge-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 600; align-items: center; justify-content: center; padding: 20px; }
+  .bridge-overlay.open { display: flex; }
+  .bridge-panel { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 4px; width: 560px; max-width: 100%; max-height: 90vh; overflow-y: auto; }
+  .bridge-header { padding: 20px 24px 16px; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: space-between; }
+  .bridge-title { font-family: 'Playfair Display', serif; font-size: 1.05rem; }
+  .bridge-close { background: none; border: none; color: var(--mid-gray); font-size: 1.2rem; cursor: pointer; padding: 0 4px; }
+  .bridge-close:hover { color: var(--off-white); }
+  .bridge-body { padding: 20px 24px; }
+
+  .bridge-step { display: flex; gap: 14px; margin-bottom: 20px; align-items: flex-start; }
+  .bridge-num { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; background: var(--rust); color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .bridge-step-text { font-size: 0.82rem; line-height: 1.55; color: var(--off-white); }
+  .bridge-step-text strong { color: white; }
+  .bridge-step-text code { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; background: #1a1a1a; padding: 1px 5px; border-radius: 2px; color: #aaa; }
+
+  .bridge-paste-area { width: 100%; background: #080808; border: 1px solid #2a2a2a; color: var(--off-white); padding: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; border-radius: 3px; outline: none; resize: vertical; min-height: 100px; transition: border-color 0.2s; }
+  .bridge-paste-area:focus { border-color: var(--rust); }
+  .bridge-paste-area.valid { border-color: #1a4a2a; }
+  .bridge-paste-area.invalid { border-color: #4a1a1a; }
+
+  .bridge-actions { padding: 16px 24px; border-top: 1px solid #1a1a1a; display: flex; gap: 8px; justify-content: flex-end; }
+
+  .badge-live { display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase; color: #70c090; background: #081a0f; border: 1px solid #1a4a2a; padding: 2px 8px; border-radius: 2px; margin-left: 8px; vertical-align: middle; }
+  .badge-live::before { content: ''; display: inline-block; width: 5px; height: 5px; background: #70c090; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+
+  @media (max-width: 750px) {
+    .container { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .filter-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">IVN <span>Studio</span></div>
+    <div class="logo-sub">Industrial Valve News · Weekly Generator</div>
+  </div>
+  <div class="week-badge" id="weekBadge">—</div>
+</header>
+
+<div class="container">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-label">
+      Source Database
+      <span class="source-count" id="sourceCount">0 fonti</span>
+    </div>
+    <div class="sidebar-controls">
+      <button class="ctrl-btn" onclick="toggleAddForm()">+ Aggiungi</button>
+      <button class="ctrl-btn" onclick="selectAllSources()">Tutte ✓</button>
+      <button class="ctrl-btn" onclick="deselectAllSources()">Nessuna ✗</button>
+    </div>
+    <div class="sidebar-controls" style="margin-top:-2px; margin-bottom: 12px;">
+      <button class="ctrl-btn primary" onclick="openBridgeDB()" id="refreshBtn">⟳ Aggiorna DB</button>
+    </div>
+
+    <div class="add-source-form" id="addForm" style="display:none">
+      <input type="text" id="newName" placeholder="Nome pubblicazione" />
+      <input type="text" id="newDesc" placeholder="Breve descrizione" />
+      <input type="text" id="newUrl" placeholder="URL (es. valve-world.net)" />
+      <input type="text" id="newTag" placeholder="Tag (es. VALVES · GLOBAL)" />
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn" style="font-size:0.62rem;padding:7px 14px" onclick="addSource()">Aggiungi</button>
+        <button class="btn btn-secondary" style="font-size:0.62rem;padding:7px 14px" onclick="toggleAddForm()">Annulla</button>
+      </div>
+    </div>
+
+    <div id="sourceList"></div>
+    <div id="dbStatus"></div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main>
+    <div class="step-bar">
+      <div class="step active" onclick="goStep(1)"><span class="step-num">01</span><span class="step-name">Search</span></div>
+      <div class="step" onclick="goStep(2)"><span class="step-num">02</span><span class="step-name">Select</span></div>
+      <div class="step" onclick="goStep(3)"><span class="step-num">03</span><span class="step-name">Generate</span></div>
+      <div class="step" onclick="goStep(4)"><span class="step-num">04</span><span class="step-name">Newsletter</span></div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="panel active" id="panel1">
+      <div class="tip">Imposta il periodo, seleziona le fonti e lancia la ricerca. Le notizie vengono cercate in tempo reale su Claude.ai. <span class="badge-live">Live web</span></div>
+
+      <div class="input-group">
+        <label class="input-label">Focus tematico (opzionale)</label>
+        <input type="text" id="focusInput" placeholder="es. ball valves, LNG, fugitive emissions, M&A, actuation..." />
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Periodo di riferimento</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.56rem;color:var(--mid-gray);letter-spacing:0.1em;margin-bottom:4px">DA</div>
+            <input type="date" id="dateFrom" />
+          </div>
+          <div style="color:var(--mid-gray);font-size:1.1rem;padding-top:18px">→</div>
+          <div style="flex:1">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.56rem;color:var(--mid-gray);letter-spacing:0.1em;margin-bottom:4px">A</div>
+            <input type="date" id="dateTo" />
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Fonti per questa ricerca</label>
+        <div class="filter-controls">
+          <span class="filter-link" onclick="filterSelectAll()">Tutte</span>
+          <span class="filter-link" onclick="filterDeselectAll()">Nessuna</span>
+          <span id="filterCounter" style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:var(--mid-gray);margin-left:auto"></span>
+        </div>
+        <div class="filter-grid" id="filterGrid"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="openBridgeSearch()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Cerca Notizie
+        </button>
+      </div>
+      <div id="searchStatus"></div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="panel" id="panel2">
+      <div class="tip">Notizie ordinate per rilevanza · qualità · freschezza. Clicca per selezionare quelle da trasformare in articoli IVN.</div>
+      <div id="newsGrid" class="news-grid"></div>
+      <div class="select-counter" id="selectCounter">Selezionate: <span>0</span></div>
+      <div class="btn-row">
+        <button class="btn" onclick="proceedToGenerate()" id="btnGenerate" disabled>Genera Articoli →</button>
+        <button class="btn btn-secondary" onclick="goStep(1)">← Nuova ricerca</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="panel" id="panel3">
+      <div class="tip">Il generatore riscrive ogni notizia selezionata nel formato editoriale IVN: lead forte, terminologia tecnica corretta, nessun hype.</div>
+      <div class="input-group">
+        <label class="input-label">Tono</label>
+        <select id="toneSelect">
+          <option value="ivn_standard">IVN Standard — conciso, tecnico, autorevole (150–250 parole)</option>
+          <option value="analytical">Analitico — più contesto e implicazioni di mercato (250–400 parole)</option>
+          <option value="brief">Brief — titolo + 2 paragrafi max (~100 parole)</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Note per il redattore AI (opzionale)</label>
+        <textarea id="editorNotes" rows="2" placeholder="es. 'Enfatizza impatto normativo PFAS' · 'Aggiungi contesto mercato europeo'"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="generateArticles()" id="btnWriteArticles">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Scrivi Articoli
+        </button>
+        <button class="btn btn-secondary" onclick="goStep(2)">← Modifica selezione</button>
+      </div>
+      <div class="loader" id="loader3"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span>Scrittura articoli...</span></div>
+      <div id="articlesContainer"></div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="panel" id="panel4">
+      <div class="tip">Anteprima newsletter pronta per la pubblicazione.</div>
+      <div class="btn-row">
+        <button class="btn" onclick="copyNewsletter()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="copyLabel">Copia Newsletter</span>
+        </button>
+        <button class="btn btn-secondary" onclick="goStep(3)">← Modifica articoli</button>
+      </div>
+      <div class="newsletter-wrapper" id="newsletterPreview"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Edit source modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">Modifica fonte</div>
+    <input type="hidden" id="editIdx" />
+    <div class="input-group"><label class="input-label">Nome</label><input type="text" id="editName" /></div>
+    <div class="input-group"><label class="input-label">Descrizione</label><input type="text" id="editDesc" /></div>
+    <div class="input-group"><label class="input-label">URL</label><input type="text" id="editUrl" /></div>
+    <div class="input-group"><label class="input-label">Tag</label><input type="text" id="editTag" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="font-size:0.65rem;padding:8px 14px" onclick="closeModal()">Annulla</button>
+      <button class="btn" style="font-size:0.65rem;padding:8px 14px" onclick="saveEdit()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- BRIDGE OVERLAY — Search -->
+<div class="bridge-overlay" id="bridgeSearch">
+  <div class="bridge-panel">
+    <div class="bridge-header">
+      <div class="bridge-title">Ricerca notizie live <span class="badge-live">Web search</span></div>
+      <button class="bridge-close" onclick="closeBridge('bridgeSearch')">✕</button>
+    </div>
+    <div class="bridge-body">
+      <div class="bridge-step">
+        <div class="bridge-num">1</div>
+        <div class="bridge-step-text">Clicca <strong>Apri Claude</strong> qui sotto. Si aprirà una nuova tab con il prompt già pronto — Claude cercherà le notizie su internet in tempo reale.</div>
+      </div>
+      <div class="bridge-step">
+        <div class="bridge-num">2</div>
+        <div class="bridge-step-text">Nella nuova tab, <strong>premi Invio</strong> per inviare il prompt (o attendi l'invio automatico). Claude risponderà con solo il JSON delle notizie.</div>
+      </div>
+      <div class="bridge-step">
+        <div class="bridge-num">3</div>
+        <div class="bridge-step-text"><strong>Seleziona tutta la risposta</strong> di Claude (<code>Ctrl+A</code> nel campo risposta, oppure seleziona manualmente il testo JSON), copiala (<code>Ctrl+C</code>), torna qui e incollala sotto.</div>
+      </div>
+      <div class="input-group" style="margin-top:4px">
+        <label class="input-label">Incolla il JSON di risposta qui</label>
+        <textarea class="bridge-paste-area" id="searchPasteArea" rows="6" placeholder='Incolla qui la risposta di Claude (il JSON con le notizie)...' oninput="validatePaste('searchPasteArea','searchPasteStatus')"></textarea>
+        <div id="searchPasteStatus" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="bridge-actions">
+      <button class="btn btn-secondary" style="font-size:0.65rem;padding:8px 14px" onclick="closeBridge('bridgeSearch')">Annulla</button>
+      <button class="btn btn-secondary" style="font-size:0.65rem;padding:8px 14px" onclick="openClaudeSearch()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Apri Claude
+      </button>
+      <button class="btn" style="font-size:0.65rem;padding:8px 14px" id="btnImportSearch" onclick="importSearchResults()" disabled>Importa Notizie →</button>
+    </div>
+  </div>
+</div>
+
+<!-- BRIDGE OVERLAY — DB Refresh -->
+<div class="bridge-overlay" id="bridgeDB">
+  <div class="bridge-panel">
+    <div class="bridge-header">
+      <div class="bridge-title">Aggiorna database fonti <span class="badge-live">Web search</span></div>
+      <button class="bridge-close" onclick="closeBridge('bridgeDB')">✕</button>
+    </div>
+    <div class="bridge-body">
+      <div class="bridge-step">
+        <div class="bridge-num">1</div>
+        <div class="bridge-step-text">Clicca <strong>Apri Claude</strong>. Si aprirà una nuova tab — Claude cercherà su internet nuove testate specializzate in valvole industriali e oil &amp; gas non ancora presenti nel tuo database.</div>
+      </div>
+      <div class="bridge-step">
+        <div class="bridge-num">2</div>
+        <div class="bridge-step-text"><strong>Premi Invio</strong> nella nuova tab. Claude risponderà con solo il JSON delle nuove fonti trovate.</div>
+      </div>
+      <div class="bridge-step">
+        <div class="bridge-num">3</div>
+        <div class="bridge-step-text"><strong>Copia la risposta</strong> di Claude (<code>Ctrl+A</code> + <code>Ctrl+C</code>), torna qui e incollala. Le nuove fonti verranno aggiunte automaticamente senza rimuovere quelle esistenti.</div>
+      </div>
+      <div class="input-group" style="margin-top:4px">
+        <label class="input-label">Incolla il JSON di risposta qui</label>
+        <textarea class="bridge-paste-area" id="dbPasteArea" rows="6" placeholder='Incolla qui la risposta di Claude (il JSON con le nuove fonti)...' oninput="validatePaste('dbPasteArea','dbPasteStatus')"></textarea>
+        <div id="dbPasteStatus" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="bridge-actions">
+      <button class="btn btn-secondary" style="font-size:0.65rem;padding:8px 14px" onclick="closeBridge('bridgeDB')">Annulla</button>
+      <button class="btn btn-secondary" style="font-size:0.65rem;padding:8px 14px" onclick="openClaudeDB()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Apri Claude
+      </button>
+      <button class="btn" style="font-size:0.65rem;padding:8px 14px" id="btnImportDB" onclick="importDBResults()" disabled>Aggiungi al DB →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DEFAULT SOURCES
+// ══════════════════════════════════════════════════════
+const DEFAULT_SOURCES = [
+  { name:"Valve World", desc:"Leading intl. magazine on industrial valves & actuators. 10 issues/yr.", url:"valve-world.net", tag:"VALVES · GLOBAL", active:true },
+  { name:"Valve World Americas", desc:"North, Central and South America focus. Frequently updated news.", url:"valve-world-americas.com", tag:"VALVES · AMERICAS", active:true },
+  { name:"Valve Magazine (VMA)", desc:"Official publication of the Valve Manufacturers Association.", url:"valvemagazine.com", tag:"VALVES · INDUSTRY", active:true },
+  { name:"Valveuser Magazine", desc:"BVAA publication. Premier UK/intl. valve & actuator journal.", url:"valveuser.com", tag:"VALVES · UK", active:true },
+  { name:"Oil & Gas Journal (OGJ)", desc:"Upstream/midstream/downstream operations news.", url:"ogj.com", tag:"OIL & GAS · GLOBAL", active:true },
+  { name:"World Oil", desc:"Daily upstream news: drilling, deepwater, shale, completion.", url:"worldoil.com", tag:"OIL & GAS · UPSTREAM", active:true },
+  { name:"Pipeline & Gas Journal", desc:"Since 1859. Midstream tech, pipelines, LNG, NGL.", url:"pipelineandgasjournal.com", tag:"OIL & GAS · MIDSTREAM", active:true },
+  { name:"Upstream Online", desc:"Global upstream sector. Correspondents in all major centres.", url:"upstreamonline.com", tag:"OIL & GAS · UPSTREAM", active:true },
+  { name:"Oil & Gas News (OGN)", desc:"Valves, actuators, instrumentation in O&G context.", url:"ognnews.com", tag:"OIL & GAS · MIDDLE EAST", active:true },
+  { name:"Hydrocarbon Processing", desc:"Downstream refining, petrochemicals, gas processing.", url:"hydrocarbonprocessing.com", tag:"OIL & GAS · DOWNSTREAM", active:true },
+  { name:"Gas Processing & LNG", desc:"Dedicated to global gas processing industry.", url:"gasprocessingnews.com", tag:"GAS · LNG", active:true },
+  { name:"Flow Control Network", desc:"Flow measurement, control valves, pumps, instrumentation.", url:"flowcontrolnetwork.com", tag:"FLOW CONTROL", active:true },
+  { name:"Processing Magazine", desc:"Process industry equipment: valves, pumps, seals.", url:"processingmagazine.com", tag:"PROCESS INDUSTRY", active:true },
+  { name:"Chemical Engineering", desc:"Technical content for chemical engineers incl. valves.", url:"chemengonline.com", tag:"CHEMICALS · PROCESS", active:true },
+  { name:"Offshore Magazine", desc:"Offshore O&G tech, subsea systems, platform operations.", url:"offshore-mag.com", tag:"OIL & GAS · OFFSHORE", active:true },
+  { name:"Rigzone", desc:"Oilfield news, equipment, contracts and projects.", url:"rigzone.com", tag:"OIL & GAS · GLOBAL", active:true },
+  { name:"Reuters Energy", desc:"Breaking energy news. High authority M&A and contracts.", url:"reuters.com/business/energy", tag:"ENERGY · BREAKING", active:true },
+  { name:"S&P Global Commodity Insights", desc:"Market intelligence on oil, gas, LNG, supply chains.", url:"spglobal.com/commodity-insights", tag:"MARKET INTELLIGENCE", active:true },
+];
+
+let sources = JSON.parse(localStorage.getItem('ivn_sources') || 'null') || DEFAULT_SOURCES.map(s=>({...s}));
+let filterActive = sources.map(s=>s.active);
+let foundNews = [];
+let selectedNews = [];
+let generatedArticles = [];
+
+function saveSources() { localStorage.setItem('ivn_sources', JSON.stringify(sources)); }
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+function toISO(d) { return d.toISOString().split('T')[0]; }
+function fmtDisplay(iso) {
+  return new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+}
+
+window.onload = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day===0?6:day-1));
+  document.getElementById('dateFrom').value = toISO(mon);
+  document.getElementById('dateTo').value   = toISO(now);
+  updateBadge();
+  ['dateFrom','dateTo'].forEach(id => document.getElementById(id).addEventListener('change', updateBadge));
+  renderSourceList();
+  renderFilterGrid();
+};
+
+function updateBadge() {
+  const f = document.getElementById('dateFrom').value;
+  const t = document.getElementById('dateTo').value;
+  if (!f||!t) return;
+  const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short'});
+  document.getElementById('weekBadge').textContent = `${fmt(f)} → ${fmt(t)}`;
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function goStep(n) {
+  if (n===2 && !foundNews.length) return;
+  if (n===3 && !selectedNews.length) return;
+  if (n===4 && !generatedArticles.length) return;
+  document.querySelectorAll('.step').forEach((s,i)=>s.classList.toggle('active',i+1===n));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i+1===n));
+}
+
+// ══════════════════════════════════════════════════════
+// SOURCE LIST
+// ══════════════════════════════════════════════════════
+function renderSourceList() {
+  const list = document.getElementById('sourceList');
+  list.innerHTML = '';
+  document.getElementById('sourceCount').textContent = `${sources.length} fonti`;
+  sources.forEach((s,i) => {
+    const card = document.createElement('div');
+    card.className = `source-card ${s.active?'active-source':'inactive-source'}`;
+    card.innerHTML = `
+      <div class="source-card-top">
+        <input type="checkbox" class="source-checkbox" ${s.active?'checked':''} onchange="toggleSourceActive(${i},this.checked)" />
+        <div class="source-name" onclick="openEdit(${i})">${s.name}</div>
+      </div>
+      <div class="source-desc">${s.desc}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="source-tag">${s.tag}</span>
+        <div class="source-actions" style="margin:0;margin-left:auto">
+          <button class="source-btn" onclick="openEdit(${i})">Modifica</button>
+          <button class="source-btn del" onclick="deleteSource(${i})">Elimina</button>
+        </div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function toggleSourceActive(i,val) { sources[i].active=val; saveSources(); renderSourceList(); renderFilterGrid(); }
+function selectAllSources()   { sources.forEach(s=>s.active=true);  saveSources(); renderSourceList(); renderFilterGrid(); }
+function deselectAllSources() { sources.forEach(s=>s.active=false); saveSources(); renderSourceList(); renderFilterGrid(); }
+
+function toggleAddForm() {
+  const f = document.getElementById('addForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+function addSource() {
+  const name = document.getElementById('newName').value.trim();
+  if (!name) return;
+  sources.push({ name, desc:document.getElementById('newDesc').value.trim(), url:document.getElementById('newUrl').value.trim(), tag:document.getElementById('newTag').value.trim()||'CUSTOM', active:true });
+  saveSources(); renderSourceList(); renderFilterGrid();
+  ['newName','newDesc','newUrl','newTag'].forEach(id=>document.getElementById(id).value='');
+  toggleAddForm();
+}
+
+function deleteSource(i) {
+  if (!confirm(`Eliminare "${sources[i].name}"?`)) return;
+  sources.splice(i,1); saveSources(); renderSourceList(); renderFilterGrid();
+}
+
+function openEdit(i) {
+  document.getElementById('editIdx').value  = i;
+  document.getElementById('editName').value = sources[i].name;
+  document.getElementById('editDesc').value = sources[i].desc;
+  document.getElementById('editUrl').value  = sources[i].url;
+  document.getElementById('editTag').value  = sources[i].tag;
+  document.getElementById('editModal').classList.add('open');
+}
+function closeModal() { document.getElementById('editModal').classList.remove('open'); }
+function saveEdit() {
+  const i = parseInt(document.getElementById('editIdx').value);
+  sources[i].name = document.getElementById('editName').value.trim();
+  sources[i].desc = document.getElementById('editDesc').value.trim();
+  sources[i].url  = document.getElementById('editUrl').value.trim();
+  sources[i].tag  = document.getElementById('editTag').value.trim();
+  saveSources(); renderSourceList(); renderFilterGrid(); closeModal();
+}
+
+// ══════════════════════════════════════════════════════
+// FILTER GRID
+// ══════════════════════════════════════════════════════
+function renderFilterGrid() {
+  filterActive = sources.map(s=>s.active);
+  const grid = document.getElementById('filterGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  sources.forEach((s,i) => {
+    const chip = document.createElement('label');
+    chip.className = `filter-chip ${filterActive[i]?'checked':''}`;
+    chip.innerHTML = `<input type="checkbox" ${filterActive[i]?'checked':''} onchange="toggleFilter(${i},this.checked)" />${s.name}`;
+    grid.appendChild(chip);
+  });
+  updateFilterCounter();
+}
+function toggleFilter(i,val) {
+  filterActive[i]=val;
+  const chips = document.querySelectorAll('.filter-chip');
+  chips[i].className=`filter-chip ${val?'checked':''}`;
+  updateFilterCounter();
+}
+function filterSelectAll()   { filterActive=sources.map(()=>true);  renderFilterGrid(); }
+function filterDeselectAll() { filterActive=sources.map(()=>false); renderFilterGrid(); }
+function updateFilterCounter() {
+  const n=filterActive.filter(Boolean).length;
+  document.getElementById('filterCounter').textContent=`${n}/${sources.length} selezionate`;
+}
+
+// ══════════════════════════════════════════════════════
+// BRIDGE — PROMPT BUILDERS
+// ══════════════════════════════════════════════════════
+function buildSearchPrompt() {
+  const focus    = document.getElementById('focusInput').value.trim();
+  const fromVal  = document.getElementById('dateFrom').value;
+  const toVal    = document.getElementById('dateTo').value;
+  const active   = sources.filter((_,i)=>filterActive[i]);
+  const srcList  = active.map(s=>`- ${s.name} (${s.url})`).join('\n');
+  const today    = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  return `ISTRUZIONI IMPORTANTI: rispondi SOLO con il JSON grezzo, senza testo prima o dopo, senza markdown, senza backtick, senza spiegazioni. Solo l'array JSON.
+
+Sei un editor specializzato in valvole industriali e oil & gas. Oggi è ${today}.
+
+Usa il web search per trovare notizie reali pubblicate tra il ${fmtDisplay(fromVal)} e il ${fmtDisplay(toVal)} dalle seguenti fonti:
+${srcList}
+
+${focus?`Focus prioritario: ${focus}`:'Copri tutto lo spettro: nuovi prodotti, contratti e progetti, M&A, normative, tecnologia, business.'}
+
+Restituisci un array JSON con 12-20 notizie, ordinate per rilevanza decrescente. Ogni elemento:
+{"title":"titolo","source":"nome fonte","date":"Month DD, YYYY","category":"Contracts & Projects","summary":"2-3 frasi fattuali.","relevance":85,"url":"https://..."}
+
+category deve essere uno di: Contracts & Projects, Business & Management, M&A, Valve Industry, End-User Industries, Standards & Regulation, Technology.
+relevance è 0-100 basato su: freschezza, rilevanza valvole/O&G, autorevolezza fonte, importanza notizia.`;
+}
+
+function buildDBPrompt() {
+  const existing = sources.map(s=>s.name).join(', ');
+  return `ISTRUZIONI IMPORTANTI: rispondi SOLO con il JSON grezzo, senza testo prima o dopo, senza markdown, senza backtick, senza spiegazioni. Solo l'array JSON.
+
+Sei uno specialista di media di settore per valvole industriali e oil & gas.
+
+Queste fonti sono già nel database (NON includerle):
+${existing}
+
+Usa il web search per identificare altre testate autorevoli, aggiornate regolarmente, rilevanti per:
+- Valvole industriali (ball, gate, globe, butterfly, check, control valves, attuatori, tenute)
+- Oil & gas (upstream, midstream, downstream)
+- Industrie di processo correlate (petrolchimica, energia, LNG, idrogeno)
+
+Restituisci un array JSON con 4-8 nuove fonti:
+{"name":"Nome pubblicazione","desc":"Descrizione max 15 parole.","url":"dominio.com","tag":"CATEGORIA · SOTTOCATEGORIA","active":true}
+
+Solo fonti attive e aggiornate almeno mensilmente. Nessun sito di produttori specifici, nessun aggregatore di bassa qualità.`;
+}
+
+// ══════════════════════════════════════════════════════
+// BRIDGE — OPEN / CLOSE
+// ══════════════════════════════════════════════════════
+function openBridgeSearch() {
+  const fromVal = document.getElementById('dateFrom').value;
+  const toVal   = document.getElementById('dateTo').value;
+  if (!fromVal||!toVal) {
+    document.getElementById('searchStatus').innerHTML='<div class="status-msg status-error">Imposta entrambe le date prima di cercare.</div>';
+    return;
+  }
+  if (!filterActive.some(Boolean)) {
+    document.getElementById('searchStatus').innerHTML='<div class="status-msg status-error">Seleziona almeno una fonte.</div>';
+    return;
+  }
+  document.getElementById('searchPasteArea').value='';
+  document.getElementById('searchPasteStatus').innerHTML='';
+  document.getElementById('searchPasteArea').className='bridge-paste-area';
+  document.getElementById('btnImportSearch').disabled=true;
+  document.getElementById('bridgeSearch').classList.add('open');
+}
+
+function openBridgeDB() {
+  document.getElementById('dbPasteArea').value='';
+  document.getElementById('dbPasteStatus').innerHTML='';
+  document.getElementById('dbPasteArea').className='bridge-paste-area';
+  document.getElementById('btnImportDB').disabled=true;
+  document.getElementById('bridgeDB').classList.add('open');
+}
+
+function closeBridge(id) { document.getElementById(id).classList.remove('open'); }
+
+function openClaudeSearch() {
+  const prompt = buildSearchPrompt();
+  const url = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+  window.open(url, '_blank');
+}
+
+function openClaudeDB() {
+  const prompt = buildDBPrompt();
+  const url = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+  window.open(url, '_blank');
+}
+
+// ══════════════════════════════════════════════════════
+// BRIDGE — PASTE VALIDATION
+// ══════════════════════════════════════════════════════
+function validatePaste(areaId, statusId) {
+  const raw = document.getElementById(areaId).value.trim();
+  const area = document.getElementById(areaId);
+  const status = document.getElementById(statusId);
+
+  if (!raw) {
+    area.className='bridge-paste-area';
+    status.innerHTML='';
+    if (areaId==='searchPasteArea') document.getElementById('btnImportSearch').disabled=true;
+    else document.getElementById('btnImportDB').disabled=true;
+    return;
+  }
+
+  try {
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const match = clean.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Nessun array JSON trovato');
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed) || parsed.length===0) throw new Error('Array vuoto');
+
+    area.className='bridge-paste-area valid';
+    status.innerHTML=`<div class="status-msg status-ok">✓ JSON valido — ${parsed.length} elementi rilevati. Premi Importa.</div>`;
+    if (areaId==='searchPasteArea') document.getElementById('btnImportSearch').disabled=false;
+    else document.getElementById('btnImportDB').disabled=false;
+  } catch(e) {
+    area.className='bridge-paste-area invalid';
+    status.innerHTML=`<div class="status-msg status-error">JSON non valido: ${e.message}. Riprova a copiare la risposta di Claude.</div>`;
+    if (areaId==='searchPasteArea') document.getElementById('btnImportSearch').disabled=true;
+    else document.getElementById('btnImportDB').disabled=true;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// BRIDGE — IMPORT
+// ══════════════════════════════════════════════════════
+function importSearchResults() {
+  const raw = document.getElementById('searchPasteArea').value.trim();
+  try {
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const match = clean.match(/\[[\s\S]*\]/);
+    foundNews = JSON.parse(match[0]);
+    closeBridge('bridgeSearch');
+    document.getElementById('searchStatus').innerHTML=`<div class="status-msg status-ok">✓ ${foundNews.length} notizie importate con successo.</div>`;
+    renderNewsGrid();
+    goStep(2);
+  } catch(e) {
+    document.getElementById('searchStatus').innerHTML=`<div class="status-msg status-error">Errore importazione: ${e.message}</div>`;
+  }
+}
+
+function importDBResults() {
+  const raw = document.getElementById('dbPasteArea').value.trim();
+  try {
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const match = clean.match(/\[[\s\S]*\]/);
+    const newSources = JSON.parse(match[0]);
+    const added = newSources.filter(ns=>!sources.find(s=>s.name.toLowerCase()===ns.name.toLowerCase()));
+    added.forEach(s=>sources.push({...s,active:true}));
+    saveSources(); renderSourceList(); renderFilterGrid();
+    closeBridge('bridgeDB');
+    document.getElementById('dbStatus').innerHTML=`<div class="status-msg status-ok">+ ${added.length} nuove fonti aggiunte al database.</div>`;
+    setTimeout(()=>{ const el=document.getElementById('dbStatus'); if(el) el.innerHTML=''; }, 4000);
+  } catch(e) {
+    document.getElementById('dbStatus').innerHTML=`<div class="status-msg status-error">Errore: ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// NEWS GRID
+// ══════════════════════════════════════════════════════
+function renderNewsGrid() {
+  const grid = document.getElementById('newsGrid');
+  grid.innerHTML=''; selectedNews=[]; updateCounter();
+  foundNews.forEach((item,i)=>{
+    const card=document.createElement('div');
+    card.className='news-card';
+    card.onclick=()=>toggleSelect(i,card);
+    card.innerHTML=`
+      <div class="news-meta">
+        <span class="news-source">${item.source}</span>
+        <span class="news-date">${item.date}</span>
+        <span class="news-category">${item.category}</span>
+      </div>
+      <div class="news-title">${item.title}</div>
+      <div class="news-summary">${item.summary}</div>
+      <div class="relevance-bar"><div class="relevance-fill" style="width:${item.relevance}%"></div></div>
+      <div class="relevance-label">Relevance: ${item.relevance}/100</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function toggleSelect(i,card) {
+  const idx=selectedNews.indexOf(i);
+  if (idx===-1){selectedNews.push(i);card.classList.add('selected');}
+  else{selectedNews.splice(idx,1);card.classList.remove('selected');}
+  updateCounter();
+  document.getElementById('btnGenerate').disabled=selectedNews.length===0;
+}
+function updateCounter() { document.querySelector('#selectCounter span').textContent=selectedNews.length; }
+function proceedToGenerate() { if(selectedNews.length) goStep(3); }
+
+// ══════════════════════════════════════════════════════
+// GENERATE ARTICLES
+// ══════════════════════════════════════════════════════
+async function generateArticles() {
+  const tone=document.getElementById('toneSelect').value;
+  const notes=document.getElementById('editorNotes').value.trim();
+  const loader=document.getElementById('loader3');
+  const container=document.getElementById('articlesContainer');
+  loader.classList.add('visible');
+  container.innerHTML='';
+  document.getElementById('btnWriteArticles').disabled=true;
+
+  const selected=selectedNews.map(i=>foundNews[i]);
+  const toneDesc={
+    ivn_standard:'IVN Standard: concise, technically accurate, authoritative B2B trade press. Lead with the key fact. No marketing hype. 150–250 words.',
+    analytical:'Analytical: more context, industry implications, market background. 250–400 words.',
+    brief:'Brief: strong headline + 2 short paragraphs. ~100 words.'
+  }[tone];
+
+  const prompt=`You are a senior editor at Industrial Valve News (IVN), the global trade publication for industrial valves and flow control.
+
+Rewrite each news item as a polished IVN editorial article.
+
+STYLE:
+- Strong declarative lead — most newsworthy fact first
+- No adjective inflation: never "groundbreaking", "revolutionary", "cutting-edge"
+- Correct technical terminology: trunnion-mounted, API 600, fugitive emissions, actuated, fire-safe, trim, bore, Class rating
+- Third person throughout
+- Include spokesperson quotes where available in the source material
+- End with brief market context or next steps
+- Tone: authoritative trade press, not a press release
+
+LENGTH & DEPTH: ${toneDesc}
+${notes?`EDITOR NOTES: ${notes}`:''}
+
+NEWS ITEMS:
+${JSON.stringify(selected,null,2)}
+
+Return ONLY a raw JSON array. No markdown, no fences, no preamble.
+[{"title":"Headline","categories":["Cat1"],"body":"Article text. Paragraphs separated by \\n\\n.","source_credit":"Source: Name"}]`;
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:6000,
+        system:'You are a senior IVN editor. Return only valid raw JSON arrays. No markdown, no fences, no preamble.',
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(`API: ${data.error.message}`);
+    let text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    text=text.replace(/```json|```/g,'').trim();
+    const match=text.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('JSON non trovato. Riprova.');
+    generatedArticles=JSON.parse(match[0]);
+    loader.classList.remove('visible');
+    document.getElementById('btnWriteArticles').disabled=false;
+    renderArticles(container);
+    buildNewsletter();
+  } catch(err) {
+    loader.classList.remove('visible');
+    document.getElementById('btnWriteArticles').disabled=false;
+    container.innerHTML=`<div class="status-msg status-error">Errore: ${err.message}</div>`;
+  }
+}
+
+function renderArticles(container) {
+  container.innerHTML='';
+  const dateStr=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  generatedArticles.forEach(art=>{
+    const div=document.createElement('div');
+    const paragraphs=art.body.split('\n\n').map(p=>`<p>${p.trim()}</p>`).join('');
+    div.innerHTML=`
+      <div class="article-output">
+        <div class="article-header">
+          <div class="article-cats">${art.categories.map(c=>`<span class="article-cat">${c}</span>`).join('')}</div>
+          <div class="article-title">${art.title}</div>
+          <div class="article-byline">IVN Editorial Staff · ${dateStr} · ${art.source_credit}</div>
+        </div>
+        <div class="article-body">${paragraphs}</div>
+      </div>`;
+    container.appendChild(div);
+  });
+  container.insertAdjacentHTML('beforeend',`<div class="btn-row" style="margin-top:16px"><button class="btn" onclick="goStep(4)">Vedi Newsletter →</button></div>`);
+}
+
+// ══════════════════════════════════════════════════════
+// NEWSLETTER
+// ══════════════════════════════════════════════════════
+function buildNewsletter() {
+  const f=document.getElementById('dateFrom').value;
+  const t=document.getElementById('dateTo').value;
+  const issueStr=f?`${fmtDisplay(f)} – ${fmtDisplay(t)}`:'';
+  const html=generatedArticles.map(art=>{
+    const paragraphs=art.body.split('\n\n').map(p=>`<p>${p.trim()}</p>`).join('');
+    return `<div class="nl-article">
+      <div class="nl-article-cats">${art.categories.join(' · ')}</div>
+      <div class="nl-article-title">${art.title}</div>
+      <div class="nl-article-body">${paragraphs}</div>
+      <div class="nl-source">${art.source_credit}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('newsletterPreview').innerHTML=`
+    <div class="nl-header">
+      <div class="nl-logo">Industrial <span>Valve</span> News</div>
+      <div class="nl-issue"><div>${issueStr}</div><div style="margin-top:3px;font-size:0.56rem">IVN Weekly Digest</div></div>
+    </div>${html}`;
+  goStep(4);
+}
+
+// ══════════════════════════════════════════════════════
+// COPY
+// ══════════════════════════════════════════════════════
+function copyNewsletter() {
+  navigator.clipboard.writeText(document.getElementById('newsletterPreview').innerText).then(()=>{
+    const lbl=document.getElementById('copyLabel');
+    lbl.textContent='✓ Copiato!';
+    setTimeout(()=>lbl.textContent='Copia Newsletter',2000);
+  });
+}
+</script>
+</body>
+</html>
